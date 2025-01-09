@@ -7,8 +7,7 @@ import Post from "./resolvers/Post.js";
 import Comment from "./resolvers/Comment.js";
 import Subscription from "./resolvers/Subscription.js";
 
-
-const pubsub = new PubSub()
+const pubsub = new PubSub();
 const server = new GraphQLServer({
   typeDefs: "./src/schema.graphql",
   resolvers: {
@@ -17,11 +16,11 @@ const server = new GraphQLServer({
     User,
     Post,
     Comment,
-    Subscription
+    Subscription,
   },
   context: {
     db,
-    pubsub
+    pubsub,
   },
 });
 
