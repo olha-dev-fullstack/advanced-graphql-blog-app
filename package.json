@@ -6,19 +6,25 @@
   "type": "module",
   "scripts": {
     "start": "kill-port 4000 && nodemon src/index.js --ext js,graphql --exec babel-node",
+    "get-schema": "graphql get-schema -p prisma",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@prisma/client": "^5.22.0",
     "babel-cli": "^6.26.0",
     "babel-plugin-transform-object-rest-spread": "^6.26.0",
     "babel-preset-env": "^1.7.0",
+    "get-graphql-schema": "^2.1.2",
+    "graphql-cli": "^2.16.4",
     "graphql-yoga": "^1.14.10",
+    "prisma-binding": "^2.1.1",
     "uuid": "^3.3.2"
   },
   "devDependencies": {
     "kill-port": "^2.0.1",
-    "nodemon": "^1.17.5"
+    "nodemon": "^1.17.5",
+    "prisma": "^5.22.0"
   }
 }
