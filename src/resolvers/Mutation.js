@@ -1,230 +1,219 @@
-import uuidv4 from "uuid/v4.js";
-
 const Mutation = {
-  createUser(parent, args, { db }, info) {
-    const emailTaken = db.users.some((user) => user.email === args.data.email);
+  async createUser(parent, args, { prisma }, info) {
+    const { name, email, age } = args.data;
 
-    if (emailTaken) {
+    const existingUser = await prisma.user.findUnique({
+      where: {
+        email,
+      },
+    });
+
+    if (existingUser) {
       throw new Error("Email taken");
     }
 
-    const user = {
-      id: uuidv4(),
-      ...args.data,
-    };
-
-    db.users.push(user);
-
-    return user;
+    return prisma.user.create({
+      data: {
+        email,
+        name,
+        age,
+      },
+    });
   },
-  deleteUser(parent, args, { db }, info) {
-    const userIndex = db.users.findIndex((user) => user.id === args.id);
-
-    if (userIndex === -1) {
+  async deleteUser(parent, args, { prisma }, info) {
+    const { id } = args;
+    const userToDelete = await prisma.user.findUnique({
+      where: {
+        id,
+      },
+    });
+    if (!userToDelete) {
       throw new Error("User not found");
     }
 
-    const deletedUsers = db.users.splice(userIndex, 1);
-
-    db.posts = db.posts.filter((post) => {
-      const match = post.author === args.id;
-
-      if (match) {
-        db.comments = db.comments.filter((comment) => comment.post !== post.id);
-      }
-
-      return !match;
-    });
-    db.comments = db.comments.filter((comment) => comment.author !== args.id);
-
-    return deletedUsers[0];
+    return prisma.user.delete({ where: { id } });
   },
-  updateUser(parent, args, { db }, info) {
+  async updateUser(parent, args, { prisma }, info) {
     const { id, data } = args;
-    const user = db.users.find((user) => user.id === id);
+    const { name, email, age } = data;
+
+    const user = await prisma.user.findUnique({
+      where: {
+        id,
+      },
+    });
 
     if (!user) {
       throw new Error("User not found");
     }
 
-    if (typeof data.email === "string") {
-      const emailTaken = db.users.some((user) => user.email === data.email);
+    if (!name && !email && !age) {
+      return {
+        userErrors: [
+          {
+            message: "Need to have at least one field to update",
+          },
+        ],
+        post: null,
+      };
+    }
 
-      if (emailTaken) {
+    if (email) {
+      const userWithEmailTaken = await prisma.user.findUnique({
+        where: {
+          email,
+        },
+      });
+
+      if (userWithEmailTaken) {
         throw new Error("Email taken");
       }
-
-      user.email = data.email;
     }
-
-    if (typeof data.name === "string") {
-      user.name = data.name;
-    }
-
-    if (typeof data.age !== "undefined") {
-      user.age = data.age;
-    }
-
-    return user;
+    return prisma.user.update({
+      data,
+      where: {
+        id,
+      },
+    });
   },
-  createPost(parent, args, { db, pubsub }, info) {
-    const userExists = db.users.some((user) => user.id === args.data.author);
+  async createPost(parent, args, { prisma }, info) {
+    const { author: userId, title, body, published } = args.data;
+    const userExists = await prisma.user.findUnique({
+      where: {
+        id: userId,
+      },
+    });
 
     if (!userExists) {
       throw new Error("User not found");
     }
 
-    const post = {
-      id: uuidv4(),
-      ...args.data,
-    };
-
-    db.posts.push(post);
-    if (args.data.published) {
-      pubsub.publish("post", {
-        post: {
-          mutation: "CREATED",
-          data: post,
-        },
-      });
-    }
-
-    return post;
+    return prisma.post.create({
+      data: {
+        title,
+        body,
+        published,
+        authorId: userId,
+      },
+    });
   },
-  deletePost(parent, args, { db, pubsub }, info) {
-    const postIndex = db.posts.findIndex((post) => post.id === args.id);
+  async deletePost(parent, args, { prisma }, info) {
+    const { id } = args;
 
-    if (postIndex === -1) {
-      throw new Error("Post not found");
+    const postToDelete = await prisma.post.findUnique({
+      where: {
+        id,
+      },
+    });
+    if (!postToDelete) {
+      throw new Error("User not found");
     }
 
-    const [post] = db.posts.splice(postIndex, 1);
-
-    db.comments = db.comments.filter((comment) => comment.post !== args.id);
-
-    if (post.published) {
-      pubsub.publish("post", {
-        post: {
-          mutation: "DELETED",
-          data: post,
-        },
-      });
-    }
-    return post;
+    return prisma.post.delete({ where: { id } });
   },
-  updatePost(parent, args, { db, pubsub }, info) {
+
+  async updatePost(parent, args, { prisma }, info) {
     const { id, data } = args;
-    const post = db.posts.find((post) => post.id === id);
+    const { title, body, published } = data;
+    const post = await prisma.post.findUnique({
+      where: {
+        id,
+      },
+    });
 
-    const originalPost = { ...post };
     if (!post) {
       throw new Error("Post not found");
     }
-
-    if (typeof data.title === "string") {
-      post.title = data.title;
-    }
-
-    if (typeof data.body === "string") {
-      post.body = data.body;
-    }
-
-    if (typeof data.published === "boolean") {
-      post.published = data.published;
-
-      if (originalPost.published && !post.published) {
-        pubsub.publish("post", {
-          post: {
-            mutation: "DELETED",
-            data: originalPost,
+    if (!title && !body && !published) {
+      return {
+        postErrors: [
+          {
+            message: "Need to have at least one field to update",
           },
-        });
-      } else if (!originalPost.published && post.published) {
-        pubsub.publish("post", {
-          post: {
-            mutation: "CREATED",
-            data: post,
-          },
-        });
-      }
-    } else if (post.published) {
-      console.log("hello");
-
-      pubsub.publish("post", {
-        post: {
-          mutation: "UPDATED",
-          data: post,
-        },
-      });
+        ],
+        post: null,
+      };
     }
-    return post;
+
+    return prisma.post.update({
+      data,
+      where: {
+        id,
+      },
+    });
   },
-  createComment(parent, args, { db, pubsub }, info) {
-    const userExists = db.users.some((user) => user.id === args.data.author);
-    const postExists = db.posts.some(
-      (post) => post.id === args.data.post && post.published
-    );
+  async createComment(parent, args, { prisma }, info) {
+    const { author: userId, post: postId, text } = args.data;
+    const userExists = await prisma.user.findUnique({ where: { id: userId } });
+    const postExists = await prisma.post.findUnique({ where: { id: postId } });
+
+    console.log(userExists);
+    console.log(postExists);
 
     if (!userExists || !postExists) {
-      throw new Error("Unable to find user and post");
+      console.log(123);
+
+      return {
+        commentErrors: {
+          message: "Unable to find user or post",
+        },
+      };
+    }
+    if (!text) {
+      return {
+        commentErrors: {
+          message: "No text provided",
+        },
+      };
     }
 
-    const comment = {
-      id: uuidv4(),
-      ...args.data,
-    };
-
-    db.comments.push(comment);
-    pubsub.publish(`comment ${args.data.post}`, {
-      comment: {
-        mutation: "CREATED",
-        data: comment,
+    return prisma.comment.create({
+      data: {
+        text,
+        authorId: userId,
+        postId: postId,
       },
     });
-
-    return comment;
   },
-  deleteComment(parent, args, { db, pubsub }, info) {
-    const commentIndex = db.comments.findIndex(
-      (comment) => comment.id === args.id
-    );
-
-    if (commentIndex === -1) {
-      throw new Error("Comment not found");
+  async deleteComment(parent, args, { prisma }, info) {
+    const { id } = args;
+    const commentToDelete = await prisma.comment.findUnique({ where: { id } });
+    if (!commentToDelete) {
+      return {
+        commentErrors: {
+          message: "Cannot find comment to delete",
+        },
+      };
     }
 
-    const [deletedComment] = db.comments.splice(commentIndex, 1);
-
-    pubsub.publish(`comment ${deletedComment.post}`, {
-      comment: {
-        mutation: "DELETED",
-        data: deletedComment,
-      },
-    });
-
-    return deletedComment;
+    return prisma.comment.delete({ where: { id } });
   },
-  updateComment(parent, args, { db, pubsub }, info) {
+  async updateComment(parent, args, { prisma }, info) {
     const { id, data } = args;
-    const comment = db.comments.find((comment) => comment.id === id);
-    const originalComment = comment;
-    if (!comment) {
-      throw new Error("Comment not found");
+    const { text } = data;
+    const commentToUpdate = await prisma.comment.findUnique({ where: { id } });
+
+    if (!commentToUpdate) {
+      return {
+        commentErrors: {
+          message: "Comment not found",
+        },
+      };
     }
 
-    if (typeof data.text === "string") {
-      comment.text = data.text;
+    if (!text) {
+      return {
+        commentErrors: {
+          message: "Nothing to update",
+        },
+      };
     }
-
-    db.comments.push(comment);
-    pubsub.publish(`comment ${comment.post}`, {
-      comment: {
-        mutation: "UPDATED",
-        data: originalComment,
+    return prisma.comment.update({
+      data,
+      where: {
+        id,
       },
     });
-
-    return comment;
   },
 };
 
