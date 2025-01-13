@@ -1,13 +1,17 @@
 const Post = {
-    author(parent, args, { db }, info) {
-        return db.users.find((user) => {
-            return user.id === parent.author
-        })
+    author(parent, args, { prisma }, info) {
+        return prisma.user.findFirst({
+            where: {
+              id: parent.authorId,
+            },
+          });
     },
-    comments(parent, args, { db }, info) {
-        return db.comments.filter((comment) => {
-            return comment.post === parent.id
-        })
+    comments(parent, args, { prisma }, info) {
+        return prisma.comment.findFirst({
+            where: {
+              id: parent.authorId,
+            },
+          });
     }
 }
 

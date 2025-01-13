@@ -6,8 +6,10 @@ import User from "./resolvers/User.js";
 import Post from "./resolvers/Post.js";
 import Comment from "./resolvers/Comment.js";
 import Subscription from "./resolvers/Subscription.js";
+import { PrismaClient } from "@prisma/client";
 
 
+const prisma = new PrismaClient()
 const pubsub = new PubSub()
 const server = new GraphQLServer({
   typeDefs: "./src/schema.graphql",
@@ -21,7 +23,8 @@ const server = new GraphQLServer({
   },
   context: {
     db,
-    pubsub
+    pubsub,
+    prisma
   },
 });
 

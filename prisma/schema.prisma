@@ -1,9 +1,4 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
+// schema.prisma
 generator client {
   provider = "prisma-client-js"
 }
@@ -14,28 +9,35 @@ datasource db {
 }
 
 model User {
-  id       String    @unique
-  name     String
-  email    String    @unique
-  posts    Post[]
-  comments Comment[]
+  id        String    @id @default(uuid())
+  name      String
+  email     String    @unique
+  age       Int?
+  posts     Post[]    
+  comments  Comment[] 
 }
 
 model Post {
-  id        String    @unique
+  id        String    @id @default(uuid())
   title     String
   body      String
   published Boolean
-  authorId  String
   author    User      @relation(fields: [authorId], references: [id])
-  comments  Comment[]
+  authorId  String
+  comments  Comment[] 
 }
 
 model Comment {
-  id       String @unique
-  text     String
-  authorId String
-  author   User   @relation(fields: [authorId], references: [id])
-  postId   String
-  post     Post   @relation(fields: [postId], references: [id])
+  id        String    @id @default(uuid())
+  text      String
+  author    User      @relation(fields: [authorId], references: [id])
+  authorId  String
+  post      Post      @relation(fields: [postId], references: [id])
+  postId    String
+}
+
+enum MutationType {
+  CREATED
+  UPDATED
+  DELETED
 }

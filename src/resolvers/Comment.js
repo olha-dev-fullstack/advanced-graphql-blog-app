@@ -1,12 +1,16 @@
 const Comment = {
-    author(parent, args, { db }, info) {
-        return db.users.find((user) => {
-            return user.id === parent.author
+    author(parent, args, { prisma }, info) {
+        return prisma.user.findFirst({
+            where: {
+                id: parent.authorId
+            }
         })
     },
-    post(parent, args, { db }, info) {
-        return db.posts.find((post) => {
-            return post.id === parent.post
+    post(parent, args, { prisma }, info) {
+        return prisma.post.findFirst({
+            where: {
+                id: parent.postId
+            }
         })
     }
 }

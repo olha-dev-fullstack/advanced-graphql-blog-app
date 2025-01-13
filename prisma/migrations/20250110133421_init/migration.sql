@@ -1,8 +1,14 @@
+-- CreateEnum
+CREATE TYPE "MutationType" AS ENUM ('CREATED', 'UPDATED', 'DELETED');
+
 -- CreateTable
 CREATE TABLE "User" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
-    "email" TEXT NOT NULL
+    "email" TEXT NOT NULL,
+    "age" INTEGER,
+
+    CONSTRAINT "User_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -11,7 +17,9 @@ CREATE TABLE "Post" (
     "title" TEXT NOT NULL,
     "body" TEXT NOT NULL,
     "published" BOOLEAN NOT NULL,
-    "authorId" TEXT NOT NULL
+    "authorId" TEXT NOT NULL,
+
+    CONSTRAINT "Post_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -19,20 +27,13 @@ CREATE TABLE "Comment" (
     "id" TEXT NOT NULL,
     "text" TEXT NOT NULL,
     "authorId" TEXT NOT NULL,
-    "postId" TEXT NOT NULL
+    "postId" TEXT NOT NULL,
+
+    CONSTRAINT "Comment_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "User_id_key" ON "User"("id");
-
--- CreateIndex
 CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
-
--- CreateIndex
-CREATE UNIQUE INDEX "Post_id_key" ON "Post"("id");
-
--- CreateIndex
-CREATE UNIQUE INDEX "Comment_id_key" ON "Comment"("id");
 
 -- AddForeignKey
 ALTER TABLE "Post" ADD CONSTRAINT "Post_authorId_fkey" FOREIGN KEY ("authorId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
