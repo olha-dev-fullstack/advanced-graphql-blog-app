@@ -16,11 +16,10 @@
     "babel-cli": "^6.26.0",
     "babel-plugin-transform-object-rest-spread": "^6.26.0",
     "babel-preset-env": "^1.7.0",
-    "get-graphql-schema": "^2.1.2",
+    "bcrypt": "^5.1.1",
     "graphql-cli": "^2.16.4",
-    "graphql-tools": "^9.0.11",
     "graphql-yoga": "^1.14.10",
-    "uuid": "^3.3.2"
+    "jsonwebtoken": "^9.0.2"
   },
   "devDependencies": {
     "kill-port": "^2.0.1",
