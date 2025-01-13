@@ -76,7 +76,7 @@ const Mutation = {
       },
     });
   },
-  async createPost(parent, args, { prisma }, info) {
+  async createPost(parent, args, { prisma, pubsub }, info) {
     const { author: userId, title, body, published } = args.data;
     const userExists = await prisma.user.findUnique({
       where: {
@@ -88,7 +88,7 @@ const Mutation = {
       throw new Error("User not found");
     }
 
-    return prisma.post.create({
+    const createdPost = prisma.post.create({
       data: {
         title,
         body,
@@ -96,8 +96,16 @@ const Mutation = {
         authorId: userId,
       },
     });
+
+    pubsub.publish(`post`, {
+      post: {
+        mutation: "CREATED",
+        data: createdPost,
+      },
+    });
+    return createdPost;
   },
-  async deletePost(parent, args, { prisma }, info) {
+  async deletePost(parent, args, { prisma, pubsub }, info) {
     const { id } = args;
 
     const postToDelete = await prisma.post.findUnique({
@@ -109,10 +117,17 @@ const Mutation = {
       throw new Error("User not found");
     }
 
-    return prisma.post.delete({ where: { id } });
+    const deletedPost = prisma.post.delete({ where: { id } });
+    pubsub.publish(`post`, {
+      post: {
+        mutation: "DELETED",
+        data: deletedPost,
+      },
+    });
+    return deletedPost;
   },
 
-  async updatePost(parent, args, { prisma }, info) {
+  async updatePost(parent, args, { prisma, pubsub }, info) {
     const { id, data } = args;
     const { title, body, published } = data;
     const post = await prisma.post.findUnique({
@@ -134,15 +149,22 @@ const Mutation = {
         post: null,
       };
     }
-
-    return prisma.post.update({
+    const updatedPost = prisma.post.update({
       data,
       where: {
         id,
       },
     });
+
+    pubsub.publish(`post`, {
+      post: {
+        mutation: "UPDATED",
+        data: updatedPost,
+      },
+    });
+    return updatedPost;
   },
-  async createComment(parent, args, { prisma }, info) {
+  async createComment(parent, args, { prisma, pubsub }, info) {
     const { author: userId, post: postId, text } = args.data;
     const userExists = await prisma.user.findUnique({ where: { id: userId } });
     const postExists = await prisma.post.findUnique({ where: { id: postId } });
@@ -166,16 +188,22 @@ const Mutation = {
         },
       };
     }
-
-    return prisma.comment.create({
+    const createdComment = await prisma.comment.create({
       data: {
         text,
         authorId: userId,
         postId: postId,
       },
     });
+    pubsub.publish(`comment ${args.data.post}`, {
+      comment: {
+        mutation: "CREATED",
+        data: createdComment,
+      },
+    });
+    return createdComment;
   },
-  async deleteComment(parent, args, { prisma }, info) {
+  async deleteComment(parent, args, { prisma, pubsub }, info) {
     const { id } = args;
     const commentToDelete = await prisma.comment.findUnique({ where: { id } });
     if (!commentToDelete) {
@@ -185,10 +213,16 @@ const Mutation = {
         },
       };
     }
-
-    return prisma.comment.delete({ where: { id } });
+    const deletedComment = prisma.comment.delete({ where: { id } });
+    pubsub.publish(`comment ${args.data.post}`, {
+      comment: {
+        mutation: "DELETED",
+        data: deletedComment,
+      },
+    });
+    return deletedComment;
   },
-  async updateComment(parent, args, { prisma }, info) {
+  async updateComment(parent, args, { prisma, pubsub }, info) {
     const { id, data } = args;
     const { text } = data;
     const commentToUpdate = await prisma.comment.findUnique({ where: { id } });
@@ -208,12 +242,19 @@ const Mutation = {
         },
       };
     }
-    return prisma.comment.update({
+    const updatedComment = prisma.comment.update({
       data,
       where: {
         id,
       },
     });
+    pubsub.publish(`comment ${args.data.post}`, {
+      comment: {
+        mutation: "UPDATED",
+        data: updatedComment,
+      },
+    });
+    return updatedComment;
   },
 };
 

@@ -1,9 +1,7 @@
 const Subscription = {
   comment: {
-    subscribe(parent, { postId }, { db, pubsub }, info) {
-      const post = db.posts.find(
-        (post) => post.id === postId && post.published
-      );
+    async subscribe(parent, { postId }, { prisma, pubsub }, info) {
+      const post = await prisma.post.findUnique({where: {id: postId}})
       if (!post) {
         throw new Error("Post not found");
       }
@@ -12,7 +10,7 @@ const Subscription = {
     },
   },
   post: {
-    subscribe(parent, args, { db, pubsub }, info) {
+    subscribe(parent, args, { pubsub }, info) {
       return pubsub.asyncIterator("post");
     },
   },
