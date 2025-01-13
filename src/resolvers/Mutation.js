@@ -1,5 +1,6 @@
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import getUserId from "../utils/getUserId.js";
 
 const Mutation = {
   async createUser(parent, args, { prisma }, info) {
@@ -16,11 +17,7 @@ const Mutation = {
     }
 
     if (password.length < 8) {
-      return {
-        userErrors: {
-          message: "Error must be longer than 8 characters",
-        },
-      };
+      throw new Error("Error must be longer than 8 characters");
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -39,8 +36,8 @@ const Mutation = {
       token: jwt.sign({ userId: user.id }, "thisisasecret"),
     };
   },
-  async deleteUser(parent, args, { prisma }, info) {
-    const { id } = args;
+  async deleteUser(parent, args, { prisma, request }, info) {
+    const id = getUserId(request);
     const userToDelete = await prisma.user.findUnique({
       where: {
         id,
@@ -52,9 +49,9 @@ const Mutation = {
 
     return prisma.user.delete({ where: { id } });
   },
-  async updateUser(parent, args, { prisma }, info) {
-    const { id, data } = args;
-    const { name, email, age } = data;
+  async updateUser(parent, args, { prisma, request }, info) {
+    const id = getUserId(request);
+    const { name, email, age } = args.data;
 
     const user = await prisma.user.findUnique({
       where: {
@@ -67,14 +64,7 @@ const Mutation = {
     }
 
     if (!name && !email && !age) {
-      return {
-        userErrors: [
-          {
-            message: "Need to have at least one field to update",
-          },
-        ],
-        post: null,
-      };
+      throw new Error("Need to have at least one field to update");
     }
 
     if (email) {
@@ -89,14 +79,35 @@ const Mutation = {
       }
     }
     return prisma.user.update({
-      data,
+      data: args.data,
       where: {
         id,
       },
     });
   },
-  async createPost(parent, args, { prisma, pubsub }, info) {
-    const { author: userId, title, body, published } = args.data;
+  async signin(parent, { email, password }, { prisma }, info) {
+    const userToLogin = await prisma.user.findUnique({
+      where: {
+        email,
+      },
+    });
+    if (!userToLogin) {
+      throw new Error("User with such email is not found");
+    }
+
+    const passwordMatch = await bcrypt.compare(password, userToLogin.password);
+    if (!passwordMatch) {
+      throw new Error("Wrong credentials!");
+    }
+
+    return {
+      user: userToLogin,
+      token: jwt.sign({ userId: userToLogin.id }, "thisisasecret"),
+    };
+  },
+  async createPost(parent, args, { prisma, pubsub, request }, info) {
+    const userId = getUserId(request);
+    const { title, body, published } = args.data;
     const userExists = await prisma.user.findUnique({
       where: {
         id: userId,
@@ -124,34 +135,40 @@ const Mutation = {
     });
     return createdPost;
   },
-  async deletePost(parent, args, { prisma, pubsub }, info) {
-    const { id } = args;
+  async deletePost(parent, args, { prisma, pubsub, request }, info) {
+    const userId = getUserId(request);
+    const { id: postId } = args;
 
     const postToDelete = await prisma.post.findUnique({
       where: {
-        id,
+        id: postId,
+        authorId: userId,
       },
     });
     if (!postToDelete) {
-      throw new Error("User not found");
+      throw new Error("Post not found");
     }
 
-    const deletedPost = prisma.post.delete({ where: { id } });
-    pubsub.publish(`post`, {
+    const deletedPost = await prisma.post.delete({ where: { id: postId } });
+    const postSubscriptionUpdate = {
       post: {
         mutation: "DELETED",
         data: deletedPost,
       },
-    });
+    };
+    pubsub.publish(`post`, postSubscriptionUpdate);
+    pubsub.publish(`post ${userId}`, postSubscriptionUpdate);
     return deletedPost;
   },
 
-  async updatePost(parent, args, { prisma, pubsub }, info) {
+  async updatePost(parent, args, { prisma, pubsub, request }, info) {
+    const userId = getUserId(request);
     const { id, data } = args;
     const { title, body, published } = data;
     const post = await prisma.post.findUnique({
       where: {
         id,
+        authorId: userId,
       },
     });
 
@@ -159,14 +176,7 @@ const Mutation = {
       throw new Error("Post not found");
     }
     if (!title && !body && !published) {
-      return {
-        postErrors: [
-          {
-            message: "Need to have at least one field to update",
-          },
-        ],
-        post: null,
-      };
+      throw new Error("Need to have at least one field to update");
     }
     const updatedPost = prisma.post.update({
       data,
@@ -174,38 +184,29 @@ const Mutation = {
         id,
       },
     });
-
-    pubsub.publish(`post`, {
+    const postSubscriptionUpdate = {
       post: {
         mutation: "UPDATED",
         data: updatedPost,
       },
-    });
+    };
+    pubsub.publish(`post`, postSubscriptionUpdate);
+    pubsub.publish(`post ${userId}`, postSubscriptionUpdate);
     return updatedPost;
   },
-  async createComment(parent, args, { prisma, pubsub }, info) {
-    const { author: userId, post: postId, text } = args.data;
+  async createComment(parent, args, { prisma, pubsub, request }, info) {
+    const userId = getUserId(request);
+    const { post: postId, text } = args.data;
     const userExists = await prisma.user.findUnique({ where: { id: userId } });
-    const postExists = await prisma.post.findUnique({ where: { id: postId } });
-
-    console.log(userExists);
-    console.log(postExists);
+    const postExists = await prisma.post.findUnique({
+      where: { id: postId, published: true },
+    });
 
     if (!userExists || !postExists) {
-      console.log(123);
-
-      return {
-        commentErrors: {
-          message: "Unable to find user or post",
-        },
-      };
+      throw new Error("Unable to find user or post");
     }
     if (!text) {
-      return {
-        commentErrors: {
-          message: "No text provided",
-        },
-      };
+      throw new Error("No text provided");
     }
     const createdComment = await prisma.comment.create({
       data: {
@@ -222,15 +223,14 @@ const Mutation = {
     });
     return createdComment;
   },
-  async deleteComment(parent, args, { prisma, pubsub }, info) {
+  async deleteComment(parent, args, { prisma, pubsub, request }, info) {
+    const userId = getUserId(request);
     const { id } = args;
-    const commentToDelete = await prisma.comment.findUnique({ where: { id } });
+    const commentToDelete = await prisma.comment.findUnique({
+      where: { id, authorId: userId },
+    });
     if (!commentToDelete) {
-      return {
-        commentErrors: {
-          message: "Cannot find comment to delete",
-        },
-      };
+      throw new Error("Cannot find comment to delete");
     }
     const deletedComment = prisma.comment.delete({ where: { id } });
     pubsub.publish(`comment ${args.data.post}`, {
@@ -241,25 +241,20 @@ const Mutation = {
     });
     return deletedComment;
   },
-  async updateComment(parent, args, { prisma, pubsub }, info) {
+  async updateComment(parent, args, { prisma, pubsub, request }, info) {
+    const userId = getUserId(request);
     const { id, data } = args;
     const { text } = data;
-    const commentToUpdate = await prisma.comment.findUnique({ where: { id } });
+    const commentToUpdate = await prisma.comment.findUnique({
+      where: { id, authorId: userId },
+    });
 
     if (!commentToUpdate) {
-      return {
-        commentErrors: {
-          message: "Comment not found",
-        },
-      };
+      throw new Error("Comment not found");
     }
 
     if (!text) {
-      return {
-        commentErrors: {
-          message: "Nothing to update",
-        },
-      };
+      throw new Error("Nothing to update");
     }
     const updatedComment = prisma.comment.update({
       data,
