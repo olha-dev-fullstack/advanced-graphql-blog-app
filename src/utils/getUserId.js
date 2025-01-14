@@ -1,4 +1,6 @@
 import jwt from "jsonwebtoken";
+import dotenv  from "dotenv";
+dotenv.config();
 const getUserId = (request, requireAuth = true) => {
   const header = request.request
     ? request.request.headers.authorization
@@ -6,7 +8,7 @@ const getUserId = (request, requireAuth = true) => {
   if (header) {
     const token = header.replace("Bearer ", "");
 
-    const decoded = jwt.verify(token, "thisisasecret");
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     return decoded.userId;
   }

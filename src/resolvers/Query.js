@@ -3,35 +3,39 @@ import getUserId from "../utils/getUserId.js";
 const Query = {
   users(parent, args, { prisma }, info) {
     if (!args.query) {
-      return prisma.user.findMany();
+      return prisma.user.findMany({
+        skip: args.skip,
+        take: args.take,
+      });
     }
     const { query } = args;
     return prisma.user.findMany({
+      skip: args.skip,
+      take: args.take, // Case-insensitive search
       where: {
-        name: { contains: query, mode: "insensitive" } }, // Case-insensitive search
- 
-      
+        name: { contains: query, mode: "insensitive" },
+      },
     });
   },
   posts(parent, args, { prisma }, info) {
-    if (!args.query) {
-      return prisma.post.findMany({
-        where: {
-          published: true,
-        },
-      });
-    }
+    const { skip, take, after, query } = args;
 
-    const { query } = args;
-    return prisma.post.findMany({
+    const baseOptions = {
+      skip,
+      take,
+      cursor: after ? { id: after } : undefined,
       where: {
         published: true,
-        OR: [
-          { title: { contains: query, mode: "insensitive" } }, // Case-insensitive search
-          { body: { contains: query, mode: "insensitive" } },
-        ],
+        ...(query && {
+          OR: [
+            { title: { contains: query, mode: "insensitive" } },
+            { body: { contains: query, mode: "insensitive" } },
+          ],
+        }),
       },
-    });
+    };
+
+    return prisma.post.findMany(baseOptions);
   },
 
   myPosts(parent, args, { request, prisma }, info) {
@@ -44,6 +48,8 @@ const Query = {
         where: {
           authorId: userId,
         },
+        skip: args.skip,
+        take: args.take,
       });
     }
     return prisma.post.findMany({
@@ -54,11 +60,16 @@ const Query = {
           { body: { contains: query, mode: "insensitive" } },
         ],
       },
+      skip: args.skip,
+      take: args.take,
     });
   },
 
   comments(parent, args, { prisma }, info) {
-    return prisma.comment.findMany();
+    return prisma.comment.findMany({
+      skip: args.skip,
+      take: args.take,
+    });
   },
   me(parent, args, { prisma, request }, info) {
     const userId = getUserId(request);
