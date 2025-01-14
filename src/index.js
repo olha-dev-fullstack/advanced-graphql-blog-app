@@ -1,35 +1,6 @@
-import { GraphQLServer, PubSub } from "graphql-yoga";
-import db from "./db.js";
-import Query from "./resolvers/Query.js";
-import Mutation from "./resolvers/Mutation.js";
-import User from "./resolvers/User.js";
-import Post from "./resolvers/Post.js";
-import Comment from "./resolvers/Comment.js";
-import Subscription from "./resolvers/Subscription.js";
-import { PrismaClient } from "@prisma/client";
+import '@babel/polyfill/noConflict.js'
+import server from './server.js'
 
-const prisma = new PrismaClient();
-const pubsub = new PubSub();
-const server = new GraphQLServer({
-  typeDefs: "./src/schema.graphql",
-  resolvers: {
-    Query,
-    Mutation,
-    User,
-    Post,
-    Comment,
-    Subscription,
-  },
-  context: (request) => {
-    return {
-      db,
-      pubsub,
-      prisma,
-      request,
-    };
-  },
-});
-
-server.start(() => {
-  console.log(`The server is up!`);
-});
+server.start({ port: process.env.PORT || 4000 }, () => {
+    console.log('The server is up!')
+})

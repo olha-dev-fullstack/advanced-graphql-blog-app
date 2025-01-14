@@ -7,22 +7,34 @@
   "scripts": {
     "start": "nodemon src/index.js --ext js,graphql --exec babel-node",
     "get-schema": "graphql get-schema -p prisma",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "migrate:postgres": "dotenv -e .test.env -- npx prisma migrate deploy"
+  },
+  "jest": {
+    "transform": {},
+    "globalSetup": "./tests/jest/globalSetup.js",
+    "globalTeardown": "./tests/jest/globalTeardown.js"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@babel/polyfill": "^7.0.0",
     "@prisma/client": "^5.22.0",
     "babel-cli": "^6.26.0",
     "babel-plugin-transform-object-rest-spread": "^6.26.0",
     "babel-preset-env": "^1.7.0",
+    "babel-register": "^6.26.0",
     "bcrypt": "^5.1.1",
-    "dotenv": "^16.4.7",
+    "dotenv-cli": "^8.0.0",
     "graphql-cli": "^2.16.4",
     "graphql-yoga": "^1.14.10",
     "jsonwebtoken": "^9.0.2"
   },
   "devDependencies": {
+    "@babel/core": "^7.26.0",
+    "@babel/preset-env": "^7.26.0",
+    "babel-jest": "^29.7.0",
+    "dotenv": "^16.4.7",
+    "jest": "^23.5.0",
     "kill-port": "^2.0.1",
     "nodemon": "^1.17.5",
     "prisma": "^5.22.0"
