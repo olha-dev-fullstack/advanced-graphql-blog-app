@@ -155,7 +155,7 @@ type CommentSubscriptionPayload {
    ```
 4. **Run database migrations:**
    ```bash
-   npx prisma migrate dev
+   npm run migrate:postgres
    ```
 5. **Start the server:**
    ```bash
